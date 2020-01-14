@@ -84,23 +84,11 @@ func NewOptions(appid string, appSecret string) *Options {
 
 	return opt
 }
-
+// New 生成一个新的 client 实例
 func New(appId string,appSecret string)*YdSdk   {
 	opt := NewOptions(appId, appSecret)
 	c := &YdSdk{}
 	c.Options = *opt
-
-	//c.NewRandom(c.Options.RandomLen)
-	c.ReqTime = time.Now().Unix()
-
-	c.Logger = log.New(os.Stderr, "["+SDKName+"]", log.LstdFlags)
-	return c
-}
-
-// NewClient 生成一个新的 client 实例
-func NewClient(o *Options) *YdSdk {
-	c := &YdSdk{}
-	c.Options = *o
 
 	//c.NewRandom(c.Options.RandomLen)
 	c.ReqTime = time.Now().Unix()
@@ -143,7 +131,6 @@ func (c *YdSdk) SetDebug(debug bool) *YdSdk {
 	if debug {
 		c.Options.Debug = debug
 	}
-
 	return c
 }
 
@@ -181,9 +168,9 @@ func (c *YdSdk) NewRequest() ([]byte, error) {
 	if err != nil {
 		fmt.Println("Fatal error ", err.Error())
 	}
-	fmt.Println(resp.StatusCode)
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println("请求异常")
+		fmt.Println(resp.StatusCode)
 	}
 	defer resp.Body.Close()//一定要关闭resp.Body
 	content, err := ioutil.ReadAll(resp.Body)
@@ -196,7 +183,7 @@ func (c *YdSdk) NewRequest() ([]byte, error) {
 
 	return content, err
 }
-
+// GET 请求
 func (c *YdSdk)Get(url string,params map[string]interface{}) ([]byte, error) {
 	c.SetMethod("GET")
 	c = c.NewURL(url)
@@ -204,6 +191,7 @@ func (c *YdSdk)Get(url string,params map[string]interface{}) ([]byte, error) {
 	rs,e := c.NewRequest()
 	return  rs ,e
 }
+// POST 请求
 func (c *YdSdk) Post(url string,params map[string]interface{}) ([]byte, error) {
 	c.SetMethod("POST")
 	c = c.NewURL(url)
@@ -211,6 +199,7 @@ func (c *YdSdk) Post(url string,params map[string]interface{}) ([]byte, error) {
 	rs,e := c.NewRequest()
 	return  rs ,e
 }
+//PUT 请求
 func (c *YdSdk) Put(url string,params map[string]interface{}) ([]byte, error) {
 	c.SetMethod("PUT")
 	c = c.NewURL(url)
@@ -218,7 +207,7 @@ func (c *YdSdk) Put(url string,params map[string]interface{}) ([]byte, error) {
 	rs,e := c.NewRequest()
 	return  rs ,e
 }
-
+//DELETE 请求
 func (c *YdSdk) Delete(url string,params map[string]interface{}) ([]byte, error) {
 	c.SetMethod("DELETE")
 	c = c.NewURL(url)
@@ -227,7 +216,7 @@ func (c *YdSdk) Delete(url string,params map[string]interface{}) ([]byte, error)
 	return  rs ,e
 }
 
-
+//生成header 里的sign
 func SignedRequest(method string,params map[string]interface{} ,app_secret string) (sign string) {
 	Payload := payload{
 		Algorithm: "HMAC-SHA256",
@@ -250,7 +239,7 @@ func SignedRequest(method string,params map[string]interface{} ,app_secret strin
 	sign = encodedSig+ "." + encodedPayload
 	return  sign
 }
-
+//hmac 加密
 func hmacSha256(encodedData string, appSecret string)(hashedSig string) {
 	key:=[]byte(appSecret)
 	h := hmac.New(sha256.New, key)
