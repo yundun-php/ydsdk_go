@@ -1,15 +1,19 @@
 package ydsdk
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -36,6 +40,8 @@ type YdSdkClient interface {
 // 一次请求具体功能由 YdSdkClient 接口实现
 type YdSdk struct {
 	URL     string
+	Method string
+	headers           map[string]string
 	ReqTime int64
 	Options Options
 	Logger  *log.Logger
@@ -148,75 +154,103 @@ type  payload struct {
 	ClientUserAgent string  `json:"client_userAgent"`
 }
 // NewRequest 执行实例发送请求
-func (c *YdSdk) NewRequest() ([]byte, error) {
-	reqest, err := http.NewRequest(c.Options.METHOD, c.URL,nil)
+func (c *YdSdk) NewRequest(method, url string, data  map[string]interface{}) (*Response, error) {
+	// Build Response
+	response := &Response{}
+
+
+	if method == "" || url == "" {
+		return nil, errors.New("parameter method and url is required")
+	}
+	 url = BASE_API_URL + url
+
+	var (
+		err  error
+		//req  *http.Request
+		body io.Reader
+	)
+
+	method = strings.ToUpper(method)
+	c.Method = method
+	c.JSON()
+	sign := SignedRequest(method,data,c.Options.APP_SECRET)
+	queryData := map[string]interface{}{
+		"X-Auth-Sign":sign,
+	}
+	if method == "GET" || method == "DELETE" {
+		url, err = buildUrl(url, queryData)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	signBody := map[string]interface{}{
+		"body":map[string]string{
+			"X-Auth-Sign":sign,
+		},
+	}
+
+	body, err = c.buildBody(signBody)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(method,url ,body)
 	if err != nil {
 		fmt.Println("Fatal error ", err.Error())
 	}
-	//给一个key设定为响应的value.
-	//reqest.Header.Set("Content-Type", "application/x-www-form-urlencoded;param=value") //必须设定该参数,POST参数才能正常提交
-	reqest.Header.Set("Content-Type", "application/json")
-	reqest.Header.Set("User-Agent", c.Options.CLIENT_USER_AGENT)
-	sign := SignedRequest(c.Options.METHOD,c.Options.PARAMS,c.Options.APP_SECRET)
-	reqest.Header.Set("X-Auth-Sign",sign)
-	reqest.Header.Set("X-Auth-App-Id", c.Options.APP_ID)
+
+	headers := map[string]string{
+		//"Content-Type": "application/json",
+		"User-Agent": c.Options.CLIENT_USER_AGENT,
+		"X-Auth-App-Id":c.Options.APP_ID,
+	}
+	c.SetHeaders(headers)
+	c.initHeaders(req)
+
 	//客户端,被Get,Head以及Post使用
 	client := &http.Client{
 		Timeout:c.Options.HTTP.Timeout,
 	}
-	resp, err := client.Do(reqest)//发送请求
+	resp, err := client.Do(req)//发送请求
 	if err != nil {
-		fmt.Println("Fatal error ", err.Error())
+		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println("请求异常")
 		fmt.Println(resp.StatusCode)
 	}
-	defer resp.Body.Close()//一定要关闭resp.Body
-	content, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-	}
 	if c.Options.Debug {
-		c.Logger.Printf("Request Url : %s, Request Params : %s, Request Res : %s\n", c.URL,c.Options.PARAMS, string(content))
+		c.Logger.Printf("Request Url : %s, Request Params : %s, Request StatusCode : %d\n", c.URL,c.Options.PARAMS,resp.StatusCode)
 	}
 
-	return content, err
+	response.resp = resp
+
+	return response, nil
+}
+
+func (c *YdSdk) initHeaders(req *http.Request) {
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for k, v := range c.headers {
+		req.Header.Set(k, v)
+	}
 }
 // GET 请求
-func (c *YdSdk)Get(url string,params map[string]interface{}) ([]byte, error) {
-	c.SetMethod("GET")
-	c = c.NewURL(url)
-	c = c.SetParams(params)
-	rs,e := c.NewRequest()
-	return  rs ,e
+func (c *YdSdk) Get(url string, data map[string]interface{}) (*Response, error) {
+	return c.NewRequest(http.MethodGet, url, data)
 }
 // POST 请求
-func (c *YdSdk) Post(url string,params map[string]interface{}) ([]byte, error) {
-	c.SetMethod("POST")
-	c = c.NewURL(url)
-	c = c.SetParams(params)
-	rs,e := c.NewRequest()
-	return  rs ,e
+func (c *YdSdk) Post(url string, data  map[string]interface{}) (*Response, error) {
+	return c.NewRequest(http.MethodPost, url, data)
 }
 //PUT 请求
-func (c *YdSdk) Put(url string,params map[string]interface{}) ([]byte, error) {
-	c.SetMethod("PUT")
-	c = c.NewURL(url)
-	c = c.SetParams(params)
-	rs,e := c.NewRequest()
-	return  rs ,e
+func (c *YdSdk) Put(url string, data  map[string]interface{}) (*Response, error) {
+	return c.NewRequest(http.MethodPut, url, data)
 }
 //DELETE 请求
-func (c *YdSdk) Delete(url string,params map[string]interface{}) ([]byte, error) {
-	c.SetMethod("DELETE")
-	c = c.NewURL(url)
-	c = c.SetParams(params)
-	rs,e := c.NewRequest()
-	return  rs ,e
+func (c *YdSdk) Delete(url string, data  map[string]interface{}) (*Response, error) {
+	return c.NewRequest(http.MethodPut, url, data)
 }
-
-//生成header 里的sign
+//生成body 里的sign
 func SignedRequest(method string,params map[string]interface{} ,app_secret string) (sign string) {
 	Payload := payload{
 		Algorithm: "HMAC-SHA256",
@@ -233,9 +267,11 @@ func SignedRequest(method string,params map[string]interface{} ,app_secret strin
 		fmt.Println(errs.Error())
 	}
 	encodeString := base64.StdEncoding.EncodeToString(jsons)
-	encodedPayload := strings.Replace(encodeString, "+/", "-_", -1)
+	tmpencodeString := strings.ReplaceAll(encodeString, "+", "-")
+	encodedPayload := strings.ReplaceAll(tmpencodeString, "/", "_")
 	hashedSig  := hmacSha256(encodedPayload, app_secret)
-	encodedSig := strings.Replace(hashedSig, "+/", "-_", -1)
+	tmphashedSig := strings.ReplaceAll(hashedSig, "+", "-")
+	encodedSig := strings.ReplaceAll(tmphashedSig, "/", "_")
 	sign = encodedSig+ "." + encodedPayload
 	return  sign
 }
@@ -246,4 +282,200 @@ func hmacSha256(encodedData string, appSecret string)(hashedSig string) {
 	h.Write([]byte(encodedData))
 	hashedSig = base64.StdEncoding.EncodeToString(h.Sum(nil))
 	return  hashedSig
+}
+
+// Check application/json
+func (c *YdSdk) isJson() bool {
+	if len(c.headers) > 0 {
+		for _, v := range c.headers {
+			if strings.Contains(strings.ToLower(v), "application/json") {
+				return true
+			}
+		}
+	}
+	return false
+}
+//设置 header 传递格式为json
+func (c *YdSdk) JSON() *YdSdk {
+	jsonHeader := map[string]string{
+		"Content-Type":"application/json",
+	}
+	c.SetHeaders(jsonHeader)
+	return c
+}
+
+// Set headers
+func (c *YdSdk) SetHeaders(headersMap map[string]string) *YdSdk {
+	if len(c.headers)==0{
+		c.headers=make(map[string]string)
+	}
+	if headersMap != nil || len(headersMap) > 0 {
+		for k, v := range headersMap {
+			c.headers[k] = v
+		}
+	}
+	return c
+}
+
+// Build query data
+func (c *YdSdk) buildBody(d ...interface{}) (io.Reader, error) {
+	// GET and DELETE request dose not send body
+	if c.Method == "GET"  {
+		return nil, nil
+	}
+
+	if len(d) == 0 || d[0] == nil {
+		return strings.NewReader(""), nil
+	}
+	t := reflect.TypeOf(d[0]).String()
+	if t != "string" && !strings.Contains(t, "map[string]interface") {
+		return strings.NewReader(""), errors.New("incorrect parameter format.")
+	}
+	if t == "string" {
+		return strings.NewReader(d[0].(string)), nil
+	}
+
+	if c.isJson() {
+		if b, err := json.Marshal(d[0]); err != nil {
+			return nil, err
+		} else {
+			return bytes.NewReader(b), nil
+		}
+	}
+
+	data := make([]string, 0)
+	for k, v := range d[0].(map[string]interface{}) {
+		if s, ok := v.(string); ok {
+			data = append(data, fmt.Sprintf("%s=%v", k, s))
+			continue
+		}
+		b, err := json.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		data = append(data, fmt.Sprintf("%s=%s", k, string(b)))
+	}
+
+	return strings.NewReader(strings.Join(data, "&")), nil
+}
+
+// Build GET request url
+func buildUrl(url string, data ...interface{}) (string, error) {
+	query, err := parseQuery(url)
+	if err != nil {
+		return url, err
+	}
+
+	if len(data) > 0 && data[0] != nil {
+		t := reflect.TypeOf(data[0]).String()
+		switch t {
+		case "map[string]interface {}":
+			for k, v := range data[0].(map[string]interface{}) {
+				vv := ""
+				if reflect.TypeOf(v).String() == "string" {
+					vv = v.(string)
+				} else {
+					b, err := json.Marshal(v)
+					if err != nil {
+						return url, err
+					}
+					vv = string(b)
+				}
+				query = append(query, fmt.Sprintf("%s=%s", k, vv))
+			}
+		case "string":
+			param := data[0].(string)
+			if param != "" {
+				query = append(query, param)
+			}
+		default:
+			return url, errors.New("incorrect parameter format.")
+		}
+
+	}
+
+	list := strings.Split(url, "?")
+
+	if len(query) > 0 {
+		return fmt.Sprintf("%s?%s", list[0], strings.Join(query, "&")), nil
+	}
+
+	return list[0], nil
+}
+
+// Parse query for GET request
+func parseQuery(url string) ([]string, error) {
+	urlList := strings.Split(url, "?")
+	if len(urlList) < 2 {
+		return make([]string, 0), nil
+	}
+	query := make([]string, 0)
+	for _, val := range strings.Split(urlList[1], "&") {
+		v := strings.Split(val, "=")
+		if len(v) < 2 {
+			return make([]string, 0), errors.New("query parameter error")
+		}
+		query = append(query, fmt.Sprintf("%s=%s", v[0], v[1]))
+	}
+	return query, nil
+}
+
+
+
+type Response struct {
+	resp *http.Response
+	body []byte
+}
+//请求返回结构体
+func (r *Response) Response() *http.Response {
+	return r.resp
+}
+//返回状态码
+func (r *Response) StatusCode() int {
+	if r.resp == nil {
+		return 0
+	}
+	return r.resp.StatusCode
+}
+
+//返回body
+func (r *Response) Body() ([]byte, error) {
+	defer r.resp.Body.Close()
+
+	if len(r.body) > 0 {
+		return r.body, nil
+	}
+
+	if r.resp == nil || r.resp.Body == nil {
+		return nil, errors.New("response or body is nil")
+	}
+
+	b, err := ioutil.ReadAll(r.resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	r.body = b
+
+	return b, nil
+}
+//返回字符串
+func (r *Response) Content() (string, error) {
+	b, err := r.Body()
+	if err != nil {
+		return "", nil
+	}
+	return string(b), nil
+}
+//返回如果是json 就decode 并赋值与参数
+func (r *Response) Json(v interface{}) error {
+	b, err := r.Body()
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+
+	return nil
 }

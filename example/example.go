@@ -27,6 +27,6 @@ func get()  {
 
 	fmt.Println("结果")
 	fmt.Println(err)
-	fmt.Println(string(resp))
+	fmt.Println(resp.StatusCode())
 }
 

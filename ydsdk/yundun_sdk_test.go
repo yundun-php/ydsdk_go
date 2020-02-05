@@ -1,8 +1,8 @@
 package ydsdk
 
-import (
-	"bytes"
+import(
 	"log"
+	"bytes"
 	"testing"
 )
 
@@ -61,10 +61,12 @@ func TestNewRequest(t *testing.T)  {
 	}
 	c = c.SetParams(args)
 	c = c.SetMethod("aaa")
-	t.Log(c.NewRequest())
-	t.Log(c.NewRequest())
+	t.Log(c.NewRequest("GET","AA",args))
+	t.Log(c.NewRequest("GET","testaaa",args))
+	t.Log(c.NewRequest("AA","AA",args))
 	c = c.SetDebug(true)
-	t.Log(c.NewRequest())
+	t.Log(c.NewRequest("AA","AA",args))
+	t.Log(c.NewRequest("","AA",args))
 }
 func TestGet(t *testing.T)  {
 	var c = New("a","b")
@@ -109,3 +111,37 @@ func TestSignedRequest(t *testing.T)  {
 	t.Log(SignedRequest("POST",args,"aaa"))
 }
 
+func TestSetHeaders(t *testing.T) {
+	var c = New("a","b")
+	jsonHeader := map[string]string{
+		"Content-Type":"application/json",
+	}
+	t.Log(c.SetHeaders(jsonHeader))
+}
+
+func TestResponse_Response(t *testing.T)  {
+	var c = New("a","b")
+	r,_:=c.NewRequest("GET","test",nil)
+	t.Log(r.Response())
+}
+func TestResponse_Json(t *testing.T)  {
+	var c = New("a","b")
+	r,_:=c.NewRequest("GET","test",nil)
+	jsondata :=make(map[string]interface{})
+	t.Log(r.Json(jsondata))
+}
+func TestResponse_Body(t *testing.T)  {
+	var c = New("a","b")
+	r,_:=c.NewRequest("GET","test",nil)
+	t.Log(r.Body())
+}
+func TestResponse_Content(t *testing.T)  {
+	var c = New("a","b")
+	r,_:=c.NewRequest("GET","test",nil)
+	t.Log(r.Content())
+}
+func TestResponse_StatusCode(t *testing.T)  {
+	var c = New("a","b")
+	r,_:=c.NewRequest("GET","test",nil)
+	t.Log(r.StatusCode())
+}
