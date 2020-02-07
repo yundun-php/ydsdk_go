@@ -171,29 +171,37 @@ func (c *YdSdk) NewRequest(method, url string, data  map[string]interface{}) (*R
 	)
 
 	method = strings.ToUpper(method)
+
+	urlList := strings.Split(url, "?")
+	if len(urlList) >= 2 {
+		for _, val := range strings.Split(urlList[1], "&") {
+			v := strings.Split(val, "=")
+			if len(v) == 2 {
+				data[v[0]] = v[1]
+			}
+		}
+	}
+	data["algorithm"] = "HMAC-SHA256"
+	data["issued_at"] = time.Now().Unix()
+	if err != nil {
+		fmt.Println(err)
+	}
 	c.Method = method
 	c.JSON()
 	sign := SignedRequest(method,data,c.Options.APP_SECRET)
-	queryData := map[string]interface{}{
-		"X-Auth-Sign":sign,
-	}
-	if method == "GET" || method == "DELETE" {
-		url, err = buildUrl(url, queryData)
+	fmt.Println(sign)
+	if method == "GET"  {
+		url, err = buildUrl(url, data)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	signBody := map[string]interface{}{
-		"body":map[string]string{
-			"X-Auth-Sign":sign,
-		},
-	}
-
-	body, err = c.buildBody(signBody)
+	body, err = c.buildBody(data)
 	if err != nil {
 		return nil, err
 	}
+
 	req, err := http.NewRequest(method,url ,body)
 	if err != nil {
 		fmt.Println("Fatal error ", err.Error())
@@ -203,6 +211,7 @@ func (c *YdSdk) NewRequest(method, url string, data  map[string]interface{}) (*R
 		//"Content-Type": "application/json",
 		"User-Agent": c.Options.CLIENT_USER_AGENT,
 		"X-Auth-App-Id":c.Options.APP_ID,
+		"X-Auth-Sign":sign,
 	}
 	c.SetHeaders(headers)
 	c.initHeaders(req)
@@ -220,7 +229,7 @@ func (c *YdSdk) NewRequest(method, url string, data  map[string]interface{}) (*R
 		fmt.Println(resp.StatusCode)
 	}
 	if c.Options.Debug {
-		c.Logger.Printf("Request Url : %s, Request Params : %s, Request StatusCode : %d\n", c.URL,c.Options.PARAMS,resp.StatusCode)
+		c.Logger.Printf("Request Url : %s, Request Params : %s, Request StatusCode : %d\n", url,body,resp.StatusCode)
 	}
 
 	response.resp = resp
@@ -252,27 +261,46 @@ func (c *YdSdk) Delete(url string, data  map[string]interface{}) (*Response, err
 }
 //生成body 里的sign
 func SignedRequest(method string,params map[string]interface{} ,app_secret string) (sign string) {
-	Payload := payload{
-		Algorithm: "HMAC-SHA256",
-		Issued_at:time.Now().Unix(),
-	}
-	if method!="GET"{
-		json_str,_ := json.Marshal(params)
-		Payload.Body = string(json_str)
+	paramsData :=make(map[string]interface{},0)
+	if  method=="GET" {
+		for k, v := range params {
+			vv := ""
+			if reflect.TypeOf(v).String() == "string" {
+				vv = v.(string)
+			} else {
+				b, err := json.Marshal(v)
+				if err != nil {
+					fmt.Println("数据异常",err)
+					continue
+				}
+				vv = string(b)
+			}
+			paramsData[k]=vv
+		}
 	}else{
-		Payload.Body = params
+		paramsData = params
 	}
-	jsons, errs := json.Marshal(Payload) //转换成JSON返回的是byte[]
-	if errs != nil {
-		fmt.Println(errs.Error())
+
+	bf := &bytes.Buffer{}
+	jsonEncoder := json.NewEncoder(bf)
+	//不转义html
+	jsonEncoder.SetEscapeHTML(false)
+	jsonEncoder.Encode(paramsData)
+	b := bf.Bytes()
+	if len(b) > 0 && b[len(b)-1] == '\n' {
+		// 去掉 go std 给加的 \n
+		// 正常的 json 末尾是不会有 \n 的
+		// @see https://github.com/golang/go/issues/7767
+		b = b[:len(b)-1]
 	}
-	encodeString := base64.StdEncoding.EncodeToString(jsons)
+	encodeString := base64.StdEncoding.EncodeToString(b)
 	tmpencodeString := strings.ReplaceAll(encodeString, "+", "-")
 	encodedPayload := strings.ReplaceAll(tmpencodeString, "/", "_")
 	hashedSig  := hmacSha256(encodedPayload, app_secret)
 	tmphashedSig := strings.ReplaceAll(hashedSig, "+", "-")
 	encodedSig := strings.ReplaceAll(tmphashedSig, "/", "_")
-	sign = encodedSig+ "." + encodedPayload
+	//sign = encodedSig+ "." + encodedPayload
+	sign = encodedSig
 	return  sign
 }
 //hmac 加密
