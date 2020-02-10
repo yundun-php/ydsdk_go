@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -48,7 +49,8 @@ type YdSdk struct {
 }
 
 const (
-	SDKName = "yundun-go-sdk"
+	SDK_VERSION = "1.0"
+	SDK_NAME= "ydsdk-go"
 	BASE_API_URL string = "http://apiv4.yundun.cn/V4/"
 )
 
@@ -99,7 +101,7 @@ func New(appId string,appSecret string)*YdSdk   {
 	//c.NewRandom(c.Options.RandomLen)
 	c.ReqTime = time.Now().Unix()
 
-	c.Logger = log.New(os.Stderr, "["+SDKName+"]", log.LstdFlags)
+	c.Logger = log.New(os.Stderr, "["+SDK_NAME+"]", log.LstdFlags)
 	return c
 }
 
@@ -183,6 +185,8 @@ func (c *YdSdk) NewRequest(method, url string, data  map[string]interface{}) (*R
 	}
 	data["algorithm"] = "HMAC-SHA256"
 	data["issued_at"] = time.Now().Unix()
+	data["client_ip"] = get_external()
+	data["client_userAgent"] = SDK_NAME+" "+SDK_VERSION+" "+runtime.Version()+" "+runtime.GOOS+" "+runtime.GOARCH
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -506,4 +510,15 @@ func (r *Response) Json(v interface{}) error {
 	}
 
 	return nil
+}
+func get_external() string {
+	resp, err := http.Get("http://myexternalip.com/raw")
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	content, _ := ioutil.ReadAll(resp.Body)
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(resp.Body)
+	return string(content)
 }
