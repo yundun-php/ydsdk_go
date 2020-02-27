@@ -1,13 +1,15 @@
 package main
 
 import (
-	"github.com/yundun-php/ydsdk_go/ydsdk"
+	//"github.com/yundun-php/ydsdk_go/ydsdk"
+	"git.nodevops.cn/gcode/ydsdk_go/ydsdk"
 	"fmt"
 )
 
 var (
 	app_id  string = "raKtReMGOfQwAQDpFqco"
 	app_secret string = "e08230881e6fd6706deba5159a3913d7"
+	base_api_url string = "http://apiv4.yundun.cn/V4/"
 )
 
 
@@ -19,7 +21,7 @@ func main() {
 }
 
 func get()  {
-	var client = ydsdk.New(app_id, app_secret)
+	var client = ydsdk.New(app_id, app_secret,base_api_url)
 	args := map[string]interface{}{
 
 	}
