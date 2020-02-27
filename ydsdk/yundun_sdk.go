@@ -21,7 +21,7 @@ import (
 
 // YdSdk 用来构造请求，设置各项参数，和执行请求的接口
 type YdSdkClient interface {
-	NewUrl(api string) *YdSdk
+	//NewUrl(api string) *YdSdk
 	NewRequest(params interface{}) ([]byte, error)
 
 	SetAPPID(appid string) *YdSdk
@@ -49,13 +49,13 @@ type YdSdk struct {
 
 const (
 	SDKName = "yundun-go-sdk"
-	BASE_API_URL string = "http://apiv4.yundun.cn/V4/"
 )
 
 type  Options struct {
 	METHOD string
 	APP_ID string
 	APP_SECRET string
+	BASE_API_URL string
 	// 用户id, 仅代理需要
 	USER_ID string
 	//客户端ip
@@ -74,10 +74,11 @@ type  Options struct {
 }
 
 // NewOptions 返回一个新的 *Options
-func NewOptions(appid string, appSecret string) *Options {
+func NewOptions(appid string, appSecret string ,baseApiUrl string) *Options {
 	opt := &Options{
 		APP_ID:  appid,
 		APP_SECRET: appSecret,
+		BASE_API_URL: baseApiUrl,
 		//RandomLen: 6,
 		CLIENT_USER_AGENT: "yundun_go_client",
 
@@ -91,8 +92,8 @@ func NewOptions(appid string, appSecret string) *Options {
 	return opt
 }
 // New 生成一个新的 client 实例
-func New(appId string,appSecret string)*YdSdk   {
-	opt := NewOptions(appId, appSecret)
+func New(appId string,appSecret string,baseApiUrl string)*YdSdk   {
+	opt := NewOptions(appId, appSecret,baseApiUrl)
 	c := &YdSdk{}
 	c.Options = *opt
 
@@ -141,10 +142,12 @@ func (c *YdSdk) SetDebug(debug bool) *YdSdk {
 }
 
 // NewURL 为实例设置 URL
+/**
 func (c *YdSdk) NewURL(api string) *YdSdk {
 	c.URL = BASE_API_URL + api
 	return c
 }
+ */
 type  payload struct {
 	Body interface{} `json:"body"`
 	Algorithm    string   `json:"algorithm"`
@@ -162,7 +165,7 @@ func (c *YdSdk) NewRequest(method, url string, data  map[string]interface{}) (*R
 	if method == "" || url == "" {
 		return nil, errors.New("parameter method and url is required")
 	}
-	 url = BASE_API_URL + url
+	 url = c.Options.BASE_API_URL + url
 
 	var (
 		err  error

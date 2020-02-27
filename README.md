@@ -7,7 +7,7 @@
 ## 说明
 > +	接口基地址： 'http://apiv4.yundun.cn/V4/';
 > +	接口遵循RESTful,默认请求体json,接口默认返回json
-> +	app_id, app_secret 联系技术客服，先注册一个云盾的账号，用于申请绑定api身份
+> +	app_id, app_secret base_api_url 联系技术客服，先注册一个云盾的账号，用于申请绑定api身份
 
 > * 签名
 >    * 每次请求都签名，保证传输过程数据不被篡改
@@ -25,7 +25,7 @@ go get github.com/yundun-php/ydsdk_go
 ```Go
 import "github.com/yundun-php/ydsdk_go/ydsdk"
 
-var client = ydsdk.New(app_id, app_secret)
+var client = ydsdk.New(app_id, app_secret,base_api_url)
 	args := map[string]interface{}{
 
 	}
