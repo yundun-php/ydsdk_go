@@ -49,7 +49,7 @@ type YdSdk struct {
 }
 
 const (
-	SDK_VERSION = "1.0"
+	SDK_VERSION = "1.0.4"
 	SDK_NAME= "ydsdk-go"
 )
 
@@ -192,7 +192,7 @@ func (c *YdSdk) NewRequest(method, url string, data  map[string]interface{}) (*R
 	data["algorithm"] = "HMAC-SHA256"
 	data["issued_at"] = time.Now().Unix()
 	data["client_ip"] = get_external()
-	data["client_userAgent"] = SDK_NAME+" "+SDK_VERSION+" "+runtime.Version()+" "+runtime.GOOS+" "+runtime.GOARCH
+	data["client_userAgent"] = SDK_NAME+"-"+SDK_VERSION+"-"+runtime.Version()+"-"+runtime.GOOS+"-"+runtime.GOARCH
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -222,6 +222,7 @@ func (c *YdSdk) NewRequest(method, url string, data  map[string]interface{}) (*R
 		"User-Agent": c.Options.CLIENT_USER_AGENT,
 		"X-Auth-App-Id":c.Options.APP_ID,
 		"X-Auth-Sign":sign,
+		"X-Auth-Sdk-Version":SDK_VERSION,
 	}
 	c.SetHeaders(headers)
 	c.initHeaders(req)
