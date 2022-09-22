@@ -13,6 +13,15 @@ func TestNew(t *testing.T)  {
 	t.Log(New("a","b","http://apiv4.yundun.com/V4/"))
 }
 
+func TestSetAPPID(t *testing.T)  {
+	var c = New("a","b","http://apiv4.yundun.com/V4/")
+	t.Log(c.SetAPPID("c"))
+}
+
+func TestSetAPPSecret(t *testing.T)  {
+	var c = New("a","b","http://apiv4.yundun.com/V4/")
+	t.Log(c.SetAPPSecret("d"))
+}
 func TestSetLogger(t *testing.T)  {
 	var c = New("a","b","http://apiv4.yundun.com/V4/")
 	buffer := bytes.NewBuffer(make([]byte, 0, 64))
@@ -36,7 +45,6 @@ func TestSetDebug(t *testing.T)  {
 	t.Log(c.SetDebug(false))
 	t.Log(c.SetDebug(true))
 }
-
 
 func TestNewRequest(t *testing.T)  {
 	var c = New("a","b","http://apiv4.yundun.com/V4/")
@@ -107,42 +115,27 @@ func TestSetHeaders(t *testing.T) {
 
 func TestResponse_Response(t *testing.T)  {
 	var c = New("a","b","http://apiv4.yundun.com/V4/")
-	args := map[string]interface{}{
-
-	}
-	r,_:=c.NewRequest("GET","test",args)
+	r,_:=c.NewRequest("GET","test",nil)
 	t.Log(r.Response())
 }
 func TestResponse_Json(t *testing.T)  {
 	var c = New("a","b","http://apiv4.yundun.com/V4/")
-	args := map[string]interface{}{
-
-	}
-	r,_:=c.NewRequest("GET","test",args)
+	r,_:=c.NewRequest("GET","test",nil)
 	jsondata :=make(map[string]interface{})
 	t.Log(r.Json(jsondata))
 }
 func TestResponse_Body(t *testing.T)  {
 	var c = New("a","b","http://apiv4.yundun.com/V4/")
-	args := map[string]interface{}{
-
-	}
-	r,_:=c.NewRequest("GET","test",args)
+	r,_:=c.NewRequest("GET","test",nil)
 	t.Log(r.Body())
 }
 func TestResponse_Content(t *testing.T)  {
 	var c = New("a","b","http://apiv4.yundun.com/V4/")
-	args := map[string]interface{}{
-
-	}
-	r,_:=c.NewRequest("GET","test",args)
+	r,_:=c.NewRequest("GET","test",nil)
 	t.Log(r.Content())
 }
 func TestResponse_StatusCode(t *testing.T)  {
 	var c = New("a","b","http://apiv4.yundun.com/V4/")
-	args := map[string]interface{}{
-
-	}
-	r,_:=c.NewRequest("GET","test",args)
+	r,_:=c.NewRequest("GET","test",nil)
 	t.Log(r.StatusCode())
 }

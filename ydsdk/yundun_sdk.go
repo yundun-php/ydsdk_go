@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"os"
 	"reflect"
-	"runtime"
 	"strings"
 	"time"
 )
@@ -25,8 +24,8 @@ type YdSdkClient interface {
 	//NewUrl(api string) *YdSdk
 	NewRequest(params interface{}) ([]byte, error)
 
-	//SetAPPID(appid string) *YdSdk
-	//SetAPPSecret(appSecret string) *YdSdk
+	SetAPPID(appid string) *YdSdk
+	SetAPPSecret(appSecret string) *YdSdk
 	SetLogger(logger *log.Logger) *YdSdk
 	SetMethod(method string) *YdSdk
 	SetParams(params interface{}) *YdSdk
@@ -49,8 +48,7 @@ type YdSdk struct {
 }
 
 const (
-	SDK_VERSION = "1.0"
-	SDK_NAME= "ydsdk-go"
+	SDKName = "yundun-go-sdk"
 )
 
 type  Options struct {
@@ -76,7 +74,7 @@ type  Options struct {
 }
 
 // NewOptions 返回一个新的 *Options
-func NewOptions(appid string, appSecret string,baseApiUrl string) *Options {
+func NewOptions(appid string, appSecret string ,baseApiUrl string) *Options {
 	opt := &Options{
 		APP_ID:  appid,
 		APP_SECRET: appSecret,
@@ -102,24 +100,21 @@ func New(appId string,appSecret string,baseApiUrl string)*YdSdk   {
 	//c.NewRandom(c.Options.RandomLen)
 	c.ReqTime = time.Now().Unix()
 
-	c.Logger = log.New(os.Stderr, "["+SDK_NAME+"]", log.LstdFlags)
+	c.Logger = log.New(os.Stderr, "["+SDKName+"]", log.LstdFlags)
 	return c
 }
 
 // SetAPPID 为实例设置 APPID
-/**
 func (c *YdSdk) SetAPPID(appid string) *YdSdk {
 	c.Options.APP_ID = appid
 	return c
 }
-**/
+
 // SetAPPSecret为实例设置 APPSecret
-/**
 func (c *YdSdk) SetAPPSecret(appSecret string) *YdSdk {
 	c.Options.APP_SECRET = appSecret
 	return c
 }
- **/
 
 // SetLogger 为实例设置 logger
 func (c *YdSdk) SetLogger(logger *log.Logger) *YdSdk {
@@ -179,39 +174,29 @@ func (c *YdSdk) NewRequest(method, url string, data  map[string]interface{}) (*R
 	)
 
 	method = strings.ToUpper(method)
-
-	urlList := strings.Split(url, "?")
-	if len(urlList) >= 2 {
-		for _, val := range strings.Split(urlList[1], "&") {
-			v := strings.Split(val, "=")
-			if len(v) == 2 {
-				data[v[0]] = v[1]
-			}
-		}
-	}
-	data["algorithm"] = "HMAC-SHA256"
-	data["issued_at"] = time.Now().Unix()
-	data["client_ip"] = get_external()
-	data["client_userAgent"] = SDK_NAME+" "+SDK_VERSION+" "+runtime.Version()+" "+runtime.GOOS+" "+runtime.GOARCH
-	if err != nil {
-		fmt.Println(err)
-	}
 	c.Method = method
 	c.JSON()
 	sign := SignedRequest(method,data,c.Options.APP_SECRET)
-	fmt.Println(sign)
-	if method == "GET"  {
-		url, err = buildUrl(url, data)
+	queryData := map[string]interface{}{
+		"X-Auth-Sign":sign,
+	}
+	if method == "GET" || method == "DELETE" {
+		url, err = buildUrl(url, queryData)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	body, err = c.buildBody(data)
+	signBody := map[string]interface{}{
+		"body":map[string]string{
+			"X-Auth-Sign":sign,
+		},
+	}
+
+	body, err = c.buildBody(signBody)
 	if err != nil {
 		return nil, err
 	}
-
 	req, err := http.NewRequest(method,url ,body)
 	if err != nil {
 		fmt.Println("Fatal error ", err.Error())
@@ -221,7 +206,6 @@ func (c *YdSdk) NewRequest(method, url string, data  map[string]interface{}) (*R
 		//"Content-Type": "application/json",
 		"User-Agent": c.Options.CLIENT_USER_AGENT,
 		"X-Auth-App-Id":c.Options.APP_ID,
-		"X-Auth-Sign":sign,
 	}
 	c.SetHeaders(headers)
 	c.initHeaders(req)
@@ -239,7 +223,7 @@ func (c *YdSdk) NewRequest(method, url string, data  map[string]interface{}) (*R
 		fmt.Println(resp.StatusCode)
 	}
 	if c.Options.Debug {
-		c.Logger.Printf("Request Url : %s, Request Params : %s, Request StatusCode : %d\n", url,body,resp.StatusCode)
+		c.Logger.Printf("Request Url : %s, Request Params : %s, Request StatusCode : %d\n", c.URL,c.Options.PARAMS,resp.StatusCode)
 	}
 
 	response.resp = resp
@@ -271,46 +255,27 @@ func (c *YdSdk) Delete(url string, data  map[string]interface{}) (*Response, err
 }
 //生成body 里的sign
 func SignedRequest(method string,params map[string]interface{} ,app_secret string) (sign string) {
-	paramsData :=make(map[string]interface{},0)
-	if  method=="GET" {
-		for k, v := range params {
-			vv := ""
-			if reflect.TypeOf(v).String() == "string" {
-				vv = v.(string)
-			} else {
-				b, err := json.Marshal(v)
-				if err != nil {
-					fmt.Println("数据异常",err)
-					continue
-				}
-				vv = string(b)
-			}
-			paramsData[k]=vv
-		}
+	Payload := payload{
+		Algorithm: "HMAC-SHA256",
+		Issued_at:time.Now().Unix(),
+	}
+	if method!="GET"{
+		json_str,_ := json.Marshal(params)
+		Payload.Body = string(json_str)
 	}else{
-		paramsData = params
+		Payload.Body = params
 	}
-
-	bf := &bytes.Buffer{}
-	jsonEncoder := json.NewEncoder(bf)
-	//不转义html
-	jsonEncoder.SetEscapeHTML(false)
-	jsonEncoder.Encode(paramsData)
-	b := bf.Bytes()
-	if len(b) > 0 && b[len(b)-1] == '\n' {
-		// 去掉 go std 给加的 \n
-		// 正常的 json 末尾是不会有 \n 的
-		// @see https://github.com/golang/go/issues/7767
-		b = b[:len(b)-1]
+	jsons, errs := json.Marshal(Payload) //转换成JSON返回的是byte[]
+	if errs != nil {
+		fmt.Println(errs.Error())
 	}
-	encodeString := base64.StdEncoding.EncodeToString(b)
+	encodeString := base64.StdEncoding.EncodeToString(jsons)
 	tmpencodeString := strings.ReplaceAll(encodeString, "+", "-")
 	encodedPayload := strings.ReplaceAll(tmpencodeString, "/", "_")
 	hashedSig  := hmacSha256(encodedPayload, app_secret)
 	tmphashedSig := strings.ReplaceAll(hashedSig, "+", "-")
 	encodedSig := strings.ReplaceAll(tmphashedSig, "/", "_")
-	//sign = encodedSig+ "." + encodedPayload
-	sign = encodedSig
+	sign = encodedSig+ "." + encodedPayload
 	return  sign
 }
 //hmac 加密
@@ -516,15 +481,4 @@ func (r *Response) Json(v interface{}) error {
 	}
 
 	return nil
-}
-func get_external() string {
-	resp, err := http.Get("http://myexternalip.com/raw")
-	if err != nil {
-		return ""
-	}
-	defer resp.Body.Close()
-	content, _ := ioutil.ReadAll(resp.Body)
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(resp.Body)
-	return string(content)
 }

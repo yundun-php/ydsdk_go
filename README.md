@@ -5,9 +5,9 @@
 [![license](http://img.shields.io/badge/license-mit-blue.svg?style=flat-square)](https://raw.githubusercontent.com/yundun-php/ydsdk_go/master/LICENSE)
 
 ## 说明
-> +	接口基地址(base_api_url)： 'http://apiv4.yundun.com/V4/';
+> +	接口基地址： 'https://apiv4.yundun.com/V4/';
 > +	接口遵循RESTful,默认请求体json,接口默认返回json
-> +	app_id, app_secret，base_api_url 联系技术客服，先注册一个云盾的账号，用于申请绑定api身份
+> +	app_id, app_secret, base_api_url 联系技术客服，先注册一个云盾的账号，用于申请绑定api身份
 
 > * 签名
 >    * 每次请求都签名，保证传输过程数据不被篡改
