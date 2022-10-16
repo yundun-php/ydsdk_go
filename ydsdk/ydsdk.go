@@ -17,7 +17,7 @@ import (
 	"strconv"
 )
 
-var SDK_VERSION = "1.0.0"
+var SDK_VERSION = "1.0.3"
 
 // YdSdk 是请求的结构
 type YdSdk struct {
