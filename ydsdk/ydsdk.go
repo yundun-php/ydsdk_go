@@ -427,8 +427,6 @@ func (sdk *YdSdk) Request(uri, method string, reqParams ReqParams) (*Response, e
 	return &response, err
 }
 
-//"Content-Type":"application/json",
-
 // GET 请求
 func (sdk *YdSdk) Get(api string, reqParams ReqParams) (*Response, error) {
 	return sdk.Request(api, "GET", reqParams)
