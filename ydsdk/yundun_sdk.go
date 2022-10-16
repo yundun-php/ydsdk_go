@@ -49,7 +49,7 @@ type YdSdk struct {
 }
 
 const (
-	SDK_VERSION = "1.0.4"
+	SDK_VERSION = "1.0.0"
 	SDK_NAME= "ydsdk-go"
 )
 
