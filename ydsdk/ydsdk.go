@@ -263,6 +263,21 @@ func hmacSha256(encodedData string, appSecret string) (hashedSig string) {
 	return  hashedSig
 }
 
+//处理json字符串中的非ascii字符
+func jsonToUnicode(raw []byte) []byte {
+	//fmt.Println("byte 0", []byte(toStr))
+	toStr := strconv.QuoteToASCII(string(raw))	//全字符串非ascii转ascii
+	//fmt.Println("byte 1", []byte(toStr))
+	//fmt.Printf("0 %s\n", toStr)
+	toStr = strings.Trim(toStr, `"`)		//转换后，前后会多加上"，需要去掉
+	//fmt.Println("byte 2", []byte(toStr))
+	//fmt.Printf("1 %s\n", toStr)
+	toStr = strings.Replace(toStr, `\"`, `"`, -1)	//转换后，json字符串中的"，会转为\"，需要再次赚回来
+	//fmt.Println("byte 3", []byte(toStr))
+	//fmt.Printf("2 %s\n", toStr)
+	return []byte(toStr)
+}
+
 //生成body 里的sign
 func (sdk *YdSdk) Sign(method string, signData map[string]interface{}) (sign string) {
 	bf := &bytes.Buffer{}
@@ -271,13 +286,9 @@ func (sdk *YdSdk) Sign(method string, signData map[string]interface{}) (sign str
 	jsonEncoder.SetEscapeHTML(false)
 	jsonEncoder.Encode(signData)
 	b := bf.Bytes()
-	//fmt.Println("signJson: ", string(b))
-	if len(b) > 0 && b[len(b)-1] == '\n' {
-		// 去掉 go std 给加的 \n
-		// 正常的 json 末尾是不会有 \n 的
-		// @see https://github.com/golang/go/issues/7767
-		b = b[:len(b)-1]
-	}
+	// json编码后，go会自动追加\n，去掉 https://github.com/golang/go/issues/7767
+	b = bytes.TrimSpace(b)
+	b = jsonToUnicode(b)
 	encodeString := base64.StdEncoding.EncodeToString(b)
 	tmpencodeString := strings.ReplaceAll(encodeString, "+", "-")
 	encodedPayload := strings.ReplaceAll(tmpencodeString, "/", "_")

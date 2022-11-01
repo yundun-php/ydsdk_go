@@ -44,7 +44,7 @@ func sdk_test() {
 			"page": 1,
 			"pagesize": 10,
 			"data": map[string]interface{}{
-				"name": "name",
+				"name": "name名称",
 				"domain": "baidu.com",
 			},
 		},
@@ -74,7 +74,7 @@ func sdk_test() {
 			"name": 1,
 			"age": 10,
 			"data": map[string]interface{}{
-				"name": "name",
+				"name": "name名称",
 				"domain": "baidu.com",
 			},
 		},
@@ -129,7 +129,7 @@ func sdk_test() {
 			"name": 1,
 			"age": 10,
 			"data": map[string]interface{}{
-				"name": "name",
+				"name": "name名称",
 				"domain": "baidu.com",
 			},
 		},
